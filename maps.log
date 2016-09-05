@@ -1,0 +1,382 @@
+----------------------------------------------------------
+      name:  <unnamed>
+       log:  C:\Users\Milfadic\Desktop\Maps\maps.log
+  log type:  text
+ opened on:   3 Sep 2016, 15:17:21
+
+.                 
+.                 cap ssc install scmap   /*Install it if 
+> you dont have one*/
+
+.                 cap ssc install shp2dta 
+
+. 
+.                 /*Creates the STAT files from shapefiles
+> - They are already created in the FOLDER*/
+.                 cd "C:\Users\Milfadic\Desktop\Maps\\GIS"
+>         
+C:\Users\Milfadic\Desktop\Maps\GIS
+
+.                 shp2dta using prov2011_g.shp, database(i
+> tdb_prov) coordinates(itcoord_prov)  gencentroids(stub) 
+>  genid(center)
+type: 5
+
+.                 shp2dta using com2011_g.shp, database(it
+> db_com) coordinates(itcoord_com)  gencentroids(stub)  ge
+> nid(center)
+type: 5
+
+.                 shp2dta using reg2011_g.shp, database(it
+> db_reg) coordinates(itcoord_reg)  gencentroids(stub)  ge
+> nid(center)
+type: 5
+
+.                 clear
+
+.                 
+. cd "C:\Users\Milfadic\Desktop\Maps\" /*Setting Diretory 
+> Again*/
+C:\Users\Milfadic\Desktop\Maps
+
+.                 
+.         /*Import and create the indicators*/
+.         local provindicators "delimited Data\2010_Provin
+> ce_Fabbisogni_caratteristiche_prestazioni_generali.csv, 
+> delimiter(";")"
+
+.         import `provindicators' 
+(3 vars, 83 obs)
+
+.         save "Data\indicators", replace 
+file Data\indicators.dta saved
+
+. 
+.         /*Import and create the province level informati
+> on from OPennCivitas*/
+. 
+.         clear
+
+.         local enti "excel Data\Metadati_Enti.xlsx, sheet
+> ("Comuni_Province") firstrow"
+
+.         import `enti'
+
+.         keep PROVINCIA_ISTAT_COD PROVINCIA_SIGLA REGIONE
+> _DENOMINAZIONE PROVINCIA_DES    /*Keeping variables we n
+> eed*/
+
+.         gen COD_PRO=real(PROVINCIA_ISTAT_COD )  /*Transf
+> orm from String to Number*/
+(1402 missing values generated)
+
+.         collapse COD_PRO, by(PROVINCIA_ISTAT_COD PROVINC
+> IA_SIGLA REGIONE_DENOMINAZIONE PROVINCIA_DES) /*The info
+> rmation is at city level, we use province level */
+
+.         save "data\prov_inf", replace
+file data\prov_inf.dta saved
+
+.         
+. /*Load dataset*/
+.                 use  "data\indicators", clear
+
+.                 rename provincia_istat_cod COD_PRO   
+
+.                 merge 1:1 COD_PRO using  "data\prov_inf"
+>   /*Merge with Province info*/
+(note: variable COD_PRO was int, now float to
+       accommodate using data's values)
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                             4
+        from master                         0  (_merge==1)
+        from using                          4  (_merge==2)
+
+    matched                                83  (_merge==3)
+    -----------------------------------------
+
+.                 keep if _merge==3
+(4 observations deleted)
+
+.                 drop _merge
+
+.                 merge 1:1 COD_PRO using  "GIS\itdb_prov"
+>   /*Merge with Province info from GIS file*/
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                            27
+        from master                         0  (_merge==1)
+        from using                         27  (_merge==2)
+
+    matched                                83  (_merge==3)
+    -----------------------------------------
+
+.                 
+.                 rename COD_PRO province_code
+
+. 
+. /*Normalize the DATA*/
+.                 su ind3, de
+
+                            IND3
+----------------------------------------------------------
+> ---
+      Percentiles      Smallest
+ 1%    -49.17952      -49.17952
+ 5%    -34.57498      -38.83821
+10%    -27.62422      -37.56331       Obs                 
+>  83
+25%     -19.2606      -37.17261       Sum of Wgt.         
+>  83
+
+50%    -4.887587                      Mean          -1.347
+> 657
+                        Largest       Std. Dev.      22.68
+> 329
+75%     16.05354       35.20163
+90%     26.81269       51.05528       Variance       514.5
+> 317
+95%     32.42577       53.84278       Skewness       .5137
+> 033
+99%     69.37602       69.37602       Kurtosis       3.203
+> 955
+
+.                 local avg=r(mean)
+
+.                 local sd=r(sd)
+
+.                 gen indicator=(ind3-`avg')/`sd'
+(27 missing values generated)
+
+.                 
+.                 
+. /*Now We map All Of Province Code */
+.         spmap indicator  using "GIS\itcoord_prov" , id(c
+> enter) 
+
+.         graph export "Output\map_1.png", as(png) replace
+(file Output\map_1.png written in PNG format)
+
+.         
+. /*Now We map All Of Province Code with Color */
+.         spmap indicator using "GIS\itcoord_prov" , id(ce
+> nter) ///
+>                 fcolor(Blues) osize(none)        clmetho
+> d(quantile)                     
+
+.         graph export "Output\map_2.png", as(png) replace
+(file Output\map_2.png written in PNG format)
+
+.                 
+. /*Conditioning on some provinces */
+.         spmap indicator  using "GIS\itcoord_prov" if cen
+> ter==1 | center==2 | center==3, id(center) ///
+>         title ( "Index of Expenditure Vs. Needs") ///
+>                         fcolor(Blues) osize(thick thick)
+>  
+
+.                         
+.                         /*Osize is the outline of the ma
+> p*/
+.                         /*We can control how each set of
+>  labels and how thick is the outliner for each one*/
+.                         
+. /*Adding Titles*/
+.         spmap indicator  using "GIS\itcoord_prov" , id(c
+> enter) ///
+>         title ( "Index of Expenditure Vs. Needs") ///
+>                         fcolor(Blues) osize(thick thick 
+> thick thick thick)   /*Osize is the outline of the map*/
+
+.                         
+.         
+. /*Conditioning on some provinces-Changing Legend */
+.         spmap indicator  using "GIS\itcoord_prov" , id(c
+> enter) ///
+>         title ( "Index of Expenditure Vs. Needs" ) subti
+> tle("From Open Civitas") ///
+>                         fcolor(Blues) osize( thin) ///  
+>                 /*Osize is the outline of the map*/
+>                 clbreaks( -1 0 1 2 ) ///
+>                 legend(label(2 "Less than -1") label(3 "
+> Between -1 and 0" ) ///
+>                 label(4 "Between 0 and 1"  ) label(5 "Mo
+> re than 1"  ) ) ///
+>                 legtitle("Legend") 
+
+. 
+. /*Superimposing */      
+. 
+.  preserve 
+
+.  keep center NOME_PRO x_stub y_stub
+
+.  tempfile file 
+
+.  save  "data\basemap_part.dta", replace
+file data\basemap_part.dta saved
+
+.  restore 
+
+. 
+. 
+. /*Map of communities- Adding the centroid */    
+. 
+. 
+. spmap indicator  using "GIS\itcoord_prov" , id(center) /
+> //
+>                 fcolor(Blues) osize( thin) ///          
+>         /*Osize is the outline of the map*/
+>                 point( xcoord( x_stub) ycoord( y_stub)  
+>  size( vsmall   ) )   
+
+.                 graph export "Output\map_3A.png", as(png
+> ) replace 
+(file Output\map_3A.png written in PNG format)
+
+. 
+.         
+. spmap indicator  using "GIS\itcoord_prov" , id(center) /
+> //
+>         title ( "Index of Expenditure Vs. Needs" ) subti
+> tle("Open Civitas") ///
+>                 fcolor(Blues) osize( thin) ///          
+>         /*Osize is the outline of the map*/
+>                 clbreaks( -1 0 1 2 )  ///
+>                 legend(label(2 "Less than -1") label(3 "
+> Between -1 and 0" ) ///
+>                 label(4 "Between 0 and 1"  ) label(5 "Mo
+> re than 1"  ) ) ///
+>                 legtitle("Legend") ///
+>                 point( xcoord( x_stub) ycoord( y_stub)  
+>  size( vsmall   ) )   
+
+.         graph export "Output\map_3b.png", as(png) replac
+> e 
+(file Output\map_3b.png written in PNG format)
+
+.  
+.  
+. spmap indicator  using "GIS\itcoord_prov" , id(center) /
+> //
+>         title ( "Index of Expenditure Vs. Needs" ) subti
+> tle("From Open Civitas") ///
+>                 fcolor(Blues) osize( thin) ///          
+>         /*Osize is the outline of the map*/
+>                 clbreaks( -1 0 1 2 )  ///
+>                 legend(label(2 "Less than -1") label(3 "
+> Between -1 and 0" ) ///
+>                 label(4 "Between 0 and 1"  ) label(5 "Mo
+> re than 1"  ) ) ///
+>                 legtitle("Legend")   ///
+>                 point( xcoord( x_stub) ycoord( y_stub)  
+>  size( vsmall   ) )  /// 
+>                 label(data("data\basemap_part.dta") xcoo
+> rd( x_stub) ycoord(y_stub) ///
+>                 label(NOME_PRO) size(*0.5 ..) position(0
+>  6) length(26))
+
+.                 graph export "Output\map_4.png", as(png)
+>  replace
+(file Output\map_4.png written in PNG format)
+
+. /*Map of communities- SUPERIMPOSE Regional Map*/
+. 
+. preserve 
+
+. use "gis\itcoord_reg", clear
+
+. rename _ID center
+
+. merge m:1 center using "gis\itdb_reg"
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                             0
+    matched                            78,502  (_merge==3)
+    -----------------------------------------
+
+. rename  center _ID
+
+. save "data\basemap_reg.dta", replace 
+file data\basemap_reg.dta saved
+
+. restore 
+
+.                  
+. spmap indicator  using "GIS\itcoord_prov" , id(center) /
+> //
+>         title ( "Index of Expenditure Vs. Needs" ) subti
+> tle("From Open Civitas") ///
+>                 fcolor(Blues) osize( thin) ///          
+>         /*Osize is the outline of the map*/
+>                 clbreaks( -1 0 1 2 )  ///
+>                 legend(label(2 "Less than -1") label(3 "
+> Between -1 and 0" ) ///
+>                 label(4 "Between 0 and 1"  ) label(5 "Mo
+> re than 1"  ) ) ///
+>                 legtitle("Legend")   ///
+>                 polygon (data("data\basemap_reg.dta") oc
+> olor(gs14) osize(thick))
+
+.         graph export "Output\map_5.png", as(png) replace
+(file Output\map_5.png written in PNG format)
+
+. 
+.         
+. 
+. /*Map of communities- SUPERIMPOSE Regional Map, dissolve
+>  provincial borders*/
+. 
+. preserve 
+
+. use "gis\itcoord_reg", clear
+
+. rename _ID center
+
+. merge m:1 center using "gis\itdb_reg"
+
+    Result                           # of obs.
+    -----------------------------------------
+    not matched                             0
+    matched                            78,502  (_merge==3)
+    -----------------------------------------
+
+. keep if center<10
+(43461 observations deleted)
+
+. rename  center _ID
+
+. save "data\basemap_reg_part.dta", replace 
+file data\basemap_reg_part.dta saved
+
+. restore 
+
+.                  
+. spmap indicator  using "GIS\itcoord_prov" , id(center) /
+> //
+>         title ( "Index of Expenditure Vs. Needs" ) subti
+> tle("From Open Civitas") ///
+>                 fcolor(Blues) osize(thin) ocolor(none no
+> ne none none) ///               /*Osize is the outline o
+> f the map*/
+>                 clbreaks( -1 0 1 2 )  ///
+>                 legend(label(2 "Less than -1") label(3 "
+> Between -1 and 0" ) ///
+> label(4 "Between 0 and 1"  ) label(5 "More than 1"  ) ) 
+> ///
+>                 legtitle("Legend")   ///
+>                 polygon (data("data\basemap_reg_part.dta
+> ") ocolor(black) osize(thick))
+
+. graph export "Output\map_6.png", as(png) replace
+(file Output\map_6.png written in PNG format)
+
+.         
+.         
+. 
+end of do-file
+
